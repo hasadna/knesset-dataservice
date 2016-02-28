@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='knesset-data',
-    version='0.0.9',
+    version='0.0.10',
     description='API for access to available Israely Parliament (Knesset) data',
     author='Ori Hoch',
     author_email='ori@uumpa.com',
