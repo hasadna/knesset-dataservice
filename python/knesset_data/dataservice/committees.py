@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import logging
+import os
+import datetime
 
 from base import (
     BaseKnessetDataServiceCollectionObject, BaseKnessetDataServiceFunctionObject,
     KnessetDataServiceSimpleField, KnessetDataServiceLambdaField
 )
 from knesset_data.protocols.committee import CommitteeMeetingProtocol
+from knesset_data.datapackages.base import CsvResource, BaseDatapackage, BaseResource
 
 logger = logging.getLogger('knesset_data.dataservice.committees')
 
@@ -18,20 +21,26 @@ class Committee(BaseKnessetDataServiceCollectionObject):
     METHOD_NAME = "View_committee"
     DEFAULT_ORDER_BY_FIELD = "id"
 
-    id = KnessetDataServiceSimpleField('committee_id')
-    type_id = KnessetDataServiceSimpleField('committee_type_id')
-    parent_id = KnessetDataServiceSimpleField('committee_parent_id')
-    name = KnessetDataServiceSimpleField('committee_name')
-    name_eng = KnessetDataServiceSimpleField('committee_name_eng')
-    name_arb = KnessetDataServiceSimpleField('committee_name_arb')
-    begin_date = KnessetDataServiceSimpleField('committee_begin_date')
-    end_date = KnessetDataServiceSimpleField('committee_end_date')
-    description = KnessetDataServiceSimpleField('committee_desc')
-    description_eng = KnessetDataServiceSimpleField('committee_desc_eng')
-    description_arb = KnessetDataServiceSimpleField('committee_desc_arb')
-    note = KnessetDataServiceSimpleField('committee_note')
-    note_eng = KnessetDataServiceSimpleField('committee_note_eng')
-    portal_link = KnessetDataServiceSimpleField('committee_portal_link')
+    ORDERED_FIELDS = [
+        ("id", KnessetDataServiceSimpleField('committee_id', "integer")),
+        ("type_id", KnessetDataServiceSimpleField('committee_type_id', "integer")),
+        ("parent_id", KnessetDataServiceSimpleField('committee_parent_id', "integer")),
+        ("name", KnessetDataServiceSimpleField('committee_name', "string")),
+        ("name_eng", KnessetDataServiceSimpleField('committee_name_eng', "string")),
+        ("name_arb", KnessetDataServiceSimpleField('committee_name_arb', "string")),
+        ("begin_date", KnessetDataServiceSimpleField('committee_begin_date', "datetime")),
+        ("end_date", KnessetDataServiceSimpleField('committee_end_date', "datetime")),
+        ("description", KnessetDataServiceSimpleField('committee_desc', "string")),
+        ("description_eng", KnessetDataServiceSimpleField('committee_desc_eng', "string")),
+        ("description_arb", KnessetDataServiceSimpleField('committee_desc_arb', "string")),
+        ("note", KnessetDataServiceSimpleField('committee_note', "string")),
+        ("note_eng", KnessetDataServiceSimpleField('committee_note_eng', "string")),
+        ("portal_link", KnessetDataServiceSimpleField('committee_portal_link', "string")),
+    ]
+
+    @classmethod
+    def get_all(cls):
+        return cls._get_all_pages(cls._get_url_base())
 
     @classmethod
     def get_all_active_committees(cls, has_portal_link=True):
@@ -43,41 +52,90 @@ class Committee(BaseKnessetDataServiceCollectionObject):
         return cls._get_all_pages(cls._get_url_base(), params)
 
 
+class CommitteesResource(CsvResource):
+
+    def __init__(self, name, parent_datapackage_path):
+        json_table_schema = Committee.get_json_table_schema()
+        super(CommitteesResource, self).__init__(name, parent_datapackage_path, json_table_schema)
+
+    def _data_generator(self, **make_kwargs):
+        for committee in self._get_committees():
+            yield committee.all_field_values()
+
+    def _get_committees(self):
+        return Committee.get_all()
+
+
+class ActiveCommitteesResource(CommitteesResource):
+
+    def _get_committees(self):
+        return Committee.get_all_active_committees(has_portal_link=False)
+
+
+class MainCommitteesResource(CommitteesResource):
+
+    def _get_committees(self):
+        return Committee.get_all_active_committees(has_portal_link=True)
+
+
+# class CommitteeDatapackage(BaseDatapackage):
+#     dataservice_class=Committee
+#     name="knesset-data-committees"
+#
+#     def _load_resources(self, descriptor, base_path):
+#         descriptor["resources"] = [
+#             DatapackageResource("dataservice", base_path, DataserviceDatapackage)
+#         ]
+#         return super(CommitteeDatapackage, self)._load_resources(descriptor, base_path)
+
+    # def __init__(self, base_path):
+    #     super(CommitteeDatapackage, self).__init__(base_path)
+    #     self.add_csv_resource("active-committees.csv", [field.get_json_table_schema_field(fieldname)
+    #                                                     for fieldname, field in Committee.get_fields().iteritems()])
+    #
+    # def make(self, **kwargs):
+    #     super(CommitteeDatapackage, self).make(**kwargs)
+    #     csv_path = os.path.join(self.base_path, "active-committees.csv")
+    #     self.logger.info('writing active committees data to {}'.format(csv_path))
+
+
+
 class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
     SERVICE_NAME = "committees"
     METHOD_NAME = "CommitteeAgendaSearch"
 
     # the primary key of committee meetings
-    id = KnessetDataServiceSimpleField('Committee_Agenda_id')
+    id = KnessetDataServiceSimpleField('Committee_Agenda_id', 'integer')
 
     # id of the committee (linked to Committee object)
-    committee_id = KnessetDataServiceSimpleField('Committee_Agenda_committee_id')
+    committee_id = KnessetDataServiceSimpleField('Committee_Agenda_committee_id', 'integer')
 
     # date/time when the meeting started
-    datetime = KnessetDataServiceSimpleField('committee_agenda_date')
+    datetime = KnessetDataServiceSimpleField('committee_agenda_date', 'datetime')
 
     # title of the meeting
-    title = KnessetDataServiceSimpleField('title')
+    title = KnessetDataServiceSimpleField('title', 'string')
     # seems like in some committee meetings, the title field is empty, in that case title can be taken from this field
-    session_content = KnessetDataServiceSimpleField('committee_agenda_session_content')
+    session_content = KnessetDataServiceSimpleField('committee_agenda_session_content', 'string')
 
     # url to download the protocol
-    url = KnessetDataServiceSimpleField('url')
+    url = KnessetDataServiceSimpleField('url', 'string')
 
     # a CommitteeMeetingProtocol object which allows to get data from the protocol
     # because parsing the protocol requires heavy IO and processing - we provide it as a generator
     # see tests/test_meetings.py for usage example
-    protocol = KnessetDataServiceLambdaField(
-        lambda obj, entry: CommitteeMeetingProtocol.get_from_url(obj.url) if obj.url else None)
+    protocol = KnessetDataServiceLambdaField(lambda obj, entry:
+                                             CommitteeMeetingProtocol.get_from_url(obj.url)
+                                             if obj.url else None)
 
     # this seems like a shorter name of the place where meeting took place
-    location = KnessetDataServiceSimpleField('committee_location')
+    location = KnessetDataServiceSimpleField('committee_location', 'string')
 
     # this looks like a longer field with the specific details of where the meeting took place
-    place = KnessetDataServiceSimpleField('Committee_Agenda_place')
+    place = KnessetDataServiceSimpleField('Committee_Agenda_place', 'string')
 
     # date/time when the meeting ended - this is not always available, in some meetings it's empty
-    meeting_stop = KnessetDataServiceSimpleField('meeting_stop')
+    meeting_stop = KnessetDataServiceSimpleField('meeting_stop', 'string')
 
     ### following fields seem less interesting ###
     agenda_canceled = KnessetDataServiceSimpleField('Committee_Agenda_canceled')
@@ -123,3 +181,58 @@ class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
         if to_date:
             params["ToDate"] = "'%sT00:00:00'" % to_date.strftime('%Y-%m-%d')
         return super(CommitteeMeeting, cls).get(params)
+
+
+class CommitteeMeetingsResource(CsvResource):
+    """
+    Committee meetings csv resource - generates the csv with committee meetings for the last DAYS days (default 5 days)
+    if __init__ gets a meetings protocols resource it will pass every meeting over to that resource to save the corresponding protocol
+    """
+
+    def __init__(self, name, parent_datapackage_path, protocols_resource=None):
+        self._protocols_resource = protocols_resource
+        json_table_schema = CommitteeMeeting.get_json_table_schema()
+        super(CommitteeMeetingsResource, self).__init__(name, parent_datapackage_path, json_table_schema)
+
+    def _data_generator(self, **make_kwargs):
+        fromdate = datetime.datetime.now().date() - datetime.timedelta(days=make_kwargs.get('days', 5))
+        if make_kwargs.get("committee_ids", None):
+            committee_ids = make_kwargs["committee_ids"]
+        else:
+            committee_ids = (committee.id for committee in Committee.get_all_active_committees(has_portal_link=False))
+        for committee_id in committee_ids:
+            for meeting in CommitteeMeeting.get(committee_id, fromdate):
+                if self._protocols_resource:
+                    self._protocols_resource.save_meeting(committee_id, meeting)
+                yield meeting.all_field_values()
+
+
+class CommitteeMeetingProtocolsResource(BaseResource):
+
+    def __init__(self, name, parent_datapackage_path):
+        super(CommitteeMeetingProtocolsResource, self).__init__(name, parent_datapackage_path)
+        self.descriptor.update({
+            "path": [],
+            "description": "protocol file names are in the following format: <COMMITTEE_ID>/<MEETING_ID>.txt"
+        })
+
+    def save_meeting(self, committee_id, meeting):
+        if meeting.protocol:
+            path = "{}/{}/{}.txt".format(self._base_path, committee_id, meeting.id)
+            with meeting.protocol as protocol:
+                with open(path, 'wb') as f:
+                    f.write(protocol.text)
+            self.descriptor["path"].append(path)
+
+
+class CommitteeMeetingsDatapackage(BaseDatapackage):
+    name = "knesset-data-dataservice-committee-meetings"
+
+    def _load_resources(self, descriptor, base_path):
+        self.meeting_protocols_resource = CommitteeMeetingProtocolsResource("committee-meeting-protocols", base_path)
+        self.committee_meetings_resource = CommitteeMeetingsResource("committee-meetings", base_path, self.meeting_protocols_resource)
+        descriptor["resources"] = [
+            self.committee_meetings_resource,
+            self.meeting_protocols_resource
+        ]
+        return super(CommitteeMeetingsDatapackage, self)._load_resources(descriptor, base_path)

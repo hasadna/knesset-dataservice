@@ -7,3 +7,4 @@
 # see .travis.yml to see how knesset-data should be installed
 
 git+https://github.com/turnkeylinux/octohub.git
+datapackage==0.8.5

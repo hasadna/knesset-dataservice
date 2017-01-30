@@ -9,6 +9,8 @@ from knesset_data.dataservice.constants import SERVICE_URLS
 import knesset_data.dataservice.utils as ds_utils
 from knesset_data.utils.github import github_add_or_update_issue
 from knesset_data.dataservice.exceptions import KnessetDataServiceRequestException
+from copy import deepcopy
+from collections import OrderedDict
 
 
 logger=logging.getLogger(__name__)
@@ -16,6 +18,9 @@ logger=logging.getLogger(__name__)
 
 class BaseKnessetDataServiceField(object):
     DEPENDS_ON_OBJ_FIELDS = False
+
+    def __init__(self, json_table_schema="string"):
+        self._json_table_schema = json_table_schema
 
     def get_value(self, entry):
         raise Exception('must be implemented by extending classes')
@@ -27,9 +32,19 @@ class BaseKnessetDataServiceField(object):
     def set_value(self, obj, attr_name, entry):
         setattr(obj, attr_name, self.get_value(entry))
 
+    def get_json_table_schema_field(self, name=None):
+        if isinstance(self._json_table_schema, dict):
+            schema = deepcopy(self._json_table_schema)
+        else:
+            schema = {"type": self._json_table_schema}
+        if name:
+            schema["name"] = name
+        return schema
+
 
 class KnessetDataServiceSimpleField(BaseKnessetDataServiceField):
-    def __init__(self, knesset_field_name):
+    def __init__(self, knesset_field_name, json_table_schema=None):
+        super(KnessetDataServiceSimpleField, self).__init__(json_table_schema)
         self._knesset_field_name = knesset_field_name
 
     def get_value(self, entry):
@@ -54,6 +69,7 @@ class KnessetDataServiceDateTimeField(BaseKnessetDataServiceField):
     DEPENDS_ON_OBJ_FIELDS = True
 
     def __init__(self, date_attr_name, time_attr_name):
+        super(KnessetDataServiceDateTimeField, self).__init__()
         self._date_attr_name = date_attr_name
         self._time_attr_name = time_attr_name
 
@@ -67,6 +83,7 @@ class KnessetDataServiceLambdaField(BaseKnessetDataServiceField):
     DEPENDS_ON_OBJ_FIELDS = True
 
     def __init__(self, func):
+        super(KnessetDataServiceLambdaField, self).__init__()
         self._func = func
 
     def set_value(self, obj, attr_name, entry):
@@ -104,9 +121,12 @@ class BaseKnessetDataServiceObject(object):
         timeout = params.pop('__timeout__', cls.DEFAULT_REQUEST_TIMEOUT_SECONDS)
         try:
             response = requests.get(url, params=params, timeout=timeout)
-            return BeautifulSoup(response.content, 'html.parser')
         except requests.RequestException, e:
             raise cls._get_request_exception(e)
+        if response.status_code != 200:
+            raise Exception("invalid response status code: {}".format(response.status_code))
+        else:
+            return BeautifulSoup(response.content, 'html.parser')
 
     @classmethod
     def _handle_prop(cls, prop_type, prop_null, prop):
@@ -128,11 +148,20 @@ class BaseKnessetDataServiceObject(object):
     @classmethod
     def get_fields(cls):
         if not hasattr(cls, '_fields'):
-            cls._fields = {
-                attr_name: getattr(cls, attr_name) for attr_name in dir(cls) if
-                isinstance(getattr(cls, attr_name, None), BaseKnessetDataServiceField)
-                }
+            if hasattr(cls, "ORDERED_FIELDS"):
+                cls._fields = OrderedDict(cls.ORDERED_FIELDS)
+            else:
+                cls._fields = OrderedDict(((attr_name, getattr(cls, attr_name))
+                                           for attr_name in dir(cls)
+                                           if isinstance(getattr(cls, attr_name, None), BaseKnessetDataServiceField)))
         return cls._fields
+
+    @classmethod
+    def get_json_table_schema(cls):
+        return {"fields": [field.get_json_table_schema_field(fieldname)
+                           for fieldname, field
+                           in cls.get_fields().iteritems()]}
+
 
     @classmethod
     def get_field(cls, name=None):
@@ -151,7 +180,9 @@ class BaseKnessetDataServiceObject(object):
         field.set_value(self, attr_name, entry)
 
     def all_field_values(self):
-        return {k: getattr(self, k) for k, v in self.get_fields().iteritems()}
+        return OrderedDict(((k, getattr(self, k))
+                            for k, v
+                            in self.get_fields().iteritems()))
 
     def __init__(self, entry):
         self._session = requests.session()
@@ -212,17 +243,15 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
         it's dangerous because there is no stop condition
         so be sure to use it only with some kind of filter in the url to limit number of results
         """
-        entries = []
         # Composing URL in advance since the link to the next page already have the params of the
         # first request and using `get_soup` with the params argument creates duplicate params
         next_url = ds_utils.compose_url_get(start_url, params)
         while next_url:
             soup = cls._get_soup(next_url)
             for entry in soup.feed.find_all('entry'):
-                entries.append(cls(cls._parse_entry(entry)))
+                yield cls(cls._parse_entry(entry))
             next_link = soup.find('link', rel="next")
             next_url = next_link and next_link.attrs.get('href', None)
-        return entries
 
     @classmethod
     def get(cls, id):
@@ -266,4 +295,4 @@ class BaseKnessetDataServiceFunctionObject(BaseKnessetDataServiceObject):
     @classmethod
     def get(cls, params):
         soup = cls._get_soup(cls._get_url(params))
-        return [cls(cls._parse_element(element)) for element in soup.find_all('element')]
+        return (cls(cls._parse_element(element)) for element in soup.find_all('element'))
