@@ -26,6 +26,7 @@ if [[ "${BUILD_DATAPACKAGE_BRANCHES}" == *"${TRAVIS_BRANCH}"* ]]; then
     fi
 
     if [ "${KNESSET_DATA_BUCKET}" != "" ]; then
+        pip install awscli
         DATAPACKAGE_FILENAME="datapackage_last_${DATAPACKAGE_LAST_DAYS}_days_`date "+%Y-%m-%d_%H-%M"`.zip"
         aws s3 cp "data/datapackage.zip" "s3://${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}" --acl=public-read
         DATAPACKAGE_URL="https://s3.amazonaws.com/${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
