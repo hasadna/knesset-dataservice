@@ -6,7 +6,7 @@ set -e
 
 echo "running tests"
 pushd python > /dev/null
-    # bin/run_tests.sh
+    bin/run_tests.sh
 popd > /dev/null
 
 if [[ "${BUILD_DATAPACKAGE_BRANCHES}" == *"${TRAVIS_BRANCH}"* ]]; then
