@@ -2,10 +2,10 @@
 
 set -e
 
-mkdir data
+mkdir -p data
 
 pushd python > /dev/null
-    if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" && "${DATAPACKAGE_SSH_PROXY_HOST}" != "" ]; then
+    if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" ] && [ "${DATAPACKAGE_SSH_PROXY_HOST}" != "" ]; then
         echo -e "${DATAPACKAGE_SSH_PROXY_KEY}" > sshproxy.key
         chmod 400 sshproxy.key
         ssh -o StrictHostKeyChecking=no -D 8123 -C -f -N -i sshproxy.key "${DATAPACKAGE_SSH_PROXY_HOST}"
