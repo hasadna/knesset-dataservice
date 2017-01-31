@@ -21,6 +21,8 @@ if [[ "${BUILD_DATAPACKAGE_BRANCHES}" == *"${TRAVIS_BRANCH}"* ]]; then
             echo "making datapackage for last ${DATAPACKAGE_LAST_DAYS} days"
             bin/make_datapackage.py --days "${DATAPACKAGE_LAST_DAYS}" --debug --zip --http-proxy "socks5://localhost:8123"
         popd > /dev/null
+        echo "killing the ssh tunnel"
+        pkill -fe -9 sshproxy
     else
         echo "skipping datapackage creation because missing ssh proxy variables"
     fi
