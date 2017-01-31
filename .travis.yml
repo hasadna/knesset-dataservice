@@ -9,4 +9,5 @@ install:
   - pip install -r python/requirements.txt
   - pip install python/
 script:
-  - cd python && sh bin/run_tests.sh
+  - cd python && bin/run_tests.sh
+  - mkdir -p data && cd python && bin/make_datapackage.py --days 3 --debug --zip
