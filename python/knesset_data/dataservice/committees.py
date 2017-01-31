@@ -39,17 +39,17 @@ class Committee(BaseKnessetDataServiceCollectionObject):
     ]
 
     @classmethod
-    def get_all(cls):
-        return cls._get_all_pages(cls._get_url_base())
+    def get_all(cls, proxies=None):
+        return cls._get_all_pages(cls._get_url_base(), proxies=proxies)
 
     @classmethod
-    def get_all_active_committees(cls, has_portal_link=True):
+    def get_all_active_committees(cls, has_portal_link=True, proxies=None):
         if has_portal_link:
             query = ' '.join((IS_COMMITTEE_ACTIVE, 'and', COMMITTEE_HAS_PORTAL_LINK))
         else:
             query = IS_COMMITTEE_ACTIVE
         params = {'$filter': query}
-        return cls._get_all_pages(cls._get_url_base(), params)
+        return cls._get_all_pages(cls._get_url_base(), params, proxies=proxies)
 
 
 class CommitteesResource(CsvResource):
@@ -59,45 +59,23 @@ class CommitteesResource(CsvResource):
         super(CommitteesResource, self).__init__(name, parent_datapackage_path, json_table_schema)
 
     def _data_generator(self, **make_kwargs):
-        for committee in self._get_committees():
+        for committee in self._get_committees(make_kwargs.get('proxies', None)):
             yield committee.all_field_values()
 
-    def _get_committees(self):
-        return Committee.get_all()
+    def _get_committees(self, proxies):
+        return Committee.get_all(proxies=proxies)
 
 
 class ActiveCommitteesResource(CommitteesResource):
 
-    def _get_committees(self):
-        return Committee.get_all_active_committees(has_portal_link=False)
+    def _get_committees(self, proxies):
+        return Committee.get_all_active_committees(has_portal_link=False, proxies=proxies)
 
 
 class MainCommitteesResource(CommitteesResource):
 
-    def _get_committees(self):
-        return Committee.get_all_active_committees(has_portal_link=True)
-
-
-# class CommitteeDatapackage(BaseDatapackage):
-#     dataservice_class=Committee
-#     name="knesset-data-committees"
-#
-#     def _load_resources(self, descriptor, base_path):
-#         descriptor["resources"] = [
-#             DatapackageResource("dataservice", base_path, DataserviceDatapackage)
-#         ]
-#         return super(CommitteeDatapackage, self)._load_resources(descriptor, base_path)
-
-    # def __init__(self, base_path):
-    #     super(CommitteeDatapackage, self).__init__(base_path)
-    #     self.add_csv_resource("active-committees.csv", [field.get_json_table_schema_field(fieldname)
-    #                                                     for fieldname, field in Committee.get_fields().iteritems()])
-    #
-    # def make(self, **kwargs):
-    #     super(CommitteeDatapackage, self).make(**kwargs)
-    #     csv_path = os.path.join(self.base_path, "active-committees.csv")
-    #     self.logger.info('writing active committees data to {}'.format(csv_path))
-
+    def _get_committees(self, proxies):
+        return Committee.get_all_active_committees(has_portal_link=True, proxies=proxies)
 
 
 class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
@@ -125,7 +103,7 @@ class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
     # because parsing the protocol requires heavy IO and processing - we provide it as a generator
     # see tests/test_meetings.py for usage example
     protocol = KnessetDataServiceLambdaField(lambda obj, entry:
-                                             CommitteeMeetingProtocol.get_from_url(obj.url)
+                                             CommitteeMeetingProtocol.get_from_url(obj.url, proxies=obj._proxies)
                                              if obj.url else None)
 
     # this seems like a shorter name of the place where meeting took place
@@ -165,7 +143,7 @@ class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
     agenda_invited = KnessetDataServiceSimpleField('Committee_agenda_invited')
 
     @classmethod
-    def get(cls, committee_id, from_date, to_date=None):
+    def get(cls, committee_id, from_date, to_date=None, proxies=None):
         """
         # example usage:
         >>> from datetime import datetime
@@ -180,7 +158,7 @@ class CommitteeMeeting(BaseKnessetDataServiceFunctionObject):
         }
         if to_date:
             params["ToDate"] = "'%sT00:00:00'" % to_date.strftime('%Y-%m-%d')
-        return super(CommitteeMeeting, cls).get(params)
+        return super(CommitteeMeeting, cls).get(params, proxies=proxies)
 
 
 class CommitteeMeetingsResource(CsvResource):
@@ -195,13 +173,17 @@ class CommitteeMeetingsResource(CsvResource):
         super(CommitteeMeetingsResource, self).__init__(name, parent_datapackage_path, json_table_schema)
 
     def _data_generator(self, **make_kwargs):
+        proxies = make_kwargs.get('proxies', None)
         fromdate = datetime.datetime.now().date() - datetime.timedelta(days=make_kwargs.get('days', 5))
         if make_kwargs.get("committee_ids", None):
             committee_ids = make_kwargs["committee_ids"]
         else:
-            committee_ids = (committee.id for committee in Committee.get_all_active_committees(has_portal_link=False))
+            committee_ids = (committee.id
+                             for committee
+                             in Committee.get_all_active_committees(has_portal_link=False,
+                                                                    proxies=proxies))
         for committee_id in committee_ids:
-            for meeting in CommitteeMeeting.get(committee_id, fromdate):
+            for meeting in CommitteeMeeting.get(committee_id, fromdate, proxies=proxies):
                 if self._protocols_resource:
                     self._protocols_resource.save_meeting(committee_id, meeting)
                 yield meeting.all_field_values()
@@ -218,10 +200,15 @@ class CommitteeMeetingProtocolsResource(BaseResource):
 
     def save_meeting(self, committee_id, meeting):
         if meeting.protocol:
-            path = "{}/{}/{}.txt".format(self._base_path, committee_id, meeting.id)
+            if not os.path.exists(self._base_path):
+                os.mkdir(self._base_path)
+            committee_path = os.path.join(self._base_path, str(committee_id))
+            if not os.path.exists(committee_path):
+                os.mkdir(committee_path)
+            path = os.path.join(committee_path, "{}.txt".format(meeting.id))
             with meeting.protocol as protocol:
-                with open(path, 'wb') as f:
-                    f.write(protocol.text)
+                with open(path, 'w') as f:
+                    f.write(protocol.text.encode('utf8'))
             self.descriptor["path"].append(path)
 
 

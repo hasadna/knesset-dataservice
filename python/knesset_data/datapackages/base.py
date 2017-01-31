@@ -56,7 +56,11 @@ class CsvResource(BaseTabularResource):
         elif schema["type"] == "integer":
             return val
         elif schema["type"] == "string":
-            return val.encode('utf8')
+            if hasattr(val, 'encode'):
+                return val.encode('utf8')
+            else:
+                # TODO: check why this happens, I assume it's because of some special field
+                return ""
         else:
             # try different methods to encode the value
             for f in (lambda val: val.encode('utf8'),
@@ -87,6 +91,7 @@ class CsvResource(BaseTabularResource):
                         value = self._get_field_csv_value(row[field["name"]], field)
                         csv_row.append(value)
                     csv_writer.writerow(csv_row)
+            return True
 
 
 class DatapackageResource(BaseResource):
@@ -95,8 +100,8 @@ class DatapackageResource(BaseResource):
     """
 
     def __init__(self, name, parent_datapackage_path, datapackage_class):
-        super(DatapackageResource, self).__init__(name, parent_datapackage_path, {"format": "json"})
-        self.descriptor["data"] = {"datapackage": self._base_path}
+        super(DatapackageResource, self).__init__(name, parent_datapackage_path)
+        self.descriptor["path"] = os.path.join(self._base_path, "datapackage.json")
         self._datapackage_class = datapackage_class
 
     def make(self, **kwargs):
@@ -114,32 +119,10 @@ class DatapackageResource(BaseResource):
             datapackage = self._datapackage_class(descriptor={"name": name},
                                                   default_base_path=self._base_path)
             datapackage.make(**kwargs)
+            return True
 
 
 class BaseDatapackage(DataPackage):
-    #
-    # def __init__(self, base_path):
-    #     super(BaseDatapackage, self).__init__()
-    #     self._base_path = base_path
-    #     self.descriptor["name"] = self._get_name()
-    #     self.descriptor["resources"] = []
-    #     self.datapackage_resources = []
-    #
-    # def _get_name(self):
-    #     return self.name
-    #
-    # def add_datapackage_resources(self, datapackages):
-    #     for name, datapackage_class in datapackages:
-    #         datapackage = datapackage_class(os.path.join(self.base_path, name))
-    #
-    #         self.datapackage_resources.append(datapackage)
-    #         self.descriptor["resources"].append(OrderedDict([("name", name),
-    #                                                          ("format", "json"),
-    #                                                          ("data", {"datapackage": "{}/".format(name)})]))
-    #
-    # def add_csv_resource(self, path, schema_fields):
-    #     self.descriptor["resources"].append({"path": path,
-    #                                          "schema": {"fields": schema_fields}})
 
     def _load_resources(self, descriptor, base_path):
         resources = []
@@ -164,7 +147,18 @@ class BaseDatapackage(DataPackage):
         for resource in self.resources:
             if isinstance(resource, BaseResource):
                 kwargs["parent_name"] = self.descriptor["name"]
-                resource.make(**kwargs)
+                try:
+                    if resource.make(**kwargs):
+                        resource.descriptor.update({"error": False, "skipped": False})
+                    else:
+                        resource.descriptor.update({"error": False, "skipped": True})
+                except Exception, e:
+                    if kwargs.get('force', False):
+                        self.logger.error('exception trying to make resource')
+                        self.logger.exception(e)
+                        resource.descriptor.update({"error": True, "skipped": True})
+                    else:
+                        raise e
         self.logger.info('writing datapackage.json')
         with open(os.path.join(self.base_path, "datapackage.json"), 'w') as f:
             f.write(json.dumps(self.descriptor, indent=True)+"\n")

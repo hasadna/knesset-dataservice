@@ -15,6 +15,24 @@ A python module that provides api to available Israeli Parliament (Knesset) data
 * >>> print committees[0].name
 * ועדת הכנסת
 
+### Using ssh socks proxy - to overcome knesset ip blocks
+
+Knesset blocks ips that try to scrape from it.
+
+You can use an ssh socks proxy to route scraping traffic via open knesset scraping server (if you have ssh access to it)
+
+Assuming you have ssh host "oknesset-db1" configured, you can do this:
+
+```
+python$ bin/ssh_socks_proxy.sh oknesset-db1
+```
+
+Then, you can make a datapackage using:
+
+```
+python$ bin/make_datapackage.py --http-proxy socks5://localhost:8123
+```
+
 ### Project Administration
 
 #### Publishing a release to pypi

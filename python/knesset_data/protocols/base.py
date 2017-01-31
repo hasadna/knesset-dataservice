@@ -5,20 +5,23 @@ from tempfile import mkstemp
 import os
 from utils import antiword, antixml
 from cached_property import cached_property
+import requests
+import io
 
 
 class BaseProtocolFile(object):
 
     temp_file_suffix = "temp_knesset_data_protocols_"
 
-    def __init__(self, file):
+    def __init__(self, file, proxies=None):
         self._file_type, self._file_data = file
         self._cleanup = []
-
+        self._proxies = proxies if proxies else {}
 
     def _get_file_from_url(self, url):
         # allows to modify the url opening in extending classes
-        return urlopen(url)
+        # when doing so, remember to use the proxies to route traffic through the given socks proxies
+        return io.BytesIO(requests.get(url, proxies=self._proxies).content)
 
     @cached_property
     def file(self):
@@ -74,8 +77,8 @@ class BaseProtocolFile(object):
 
     @classmethod
     @contextlib.contextmanager
-    def _get_from(cls, file_type, file_data):
-        obj = cls((file_type, file_data))
+    def _get_from(cls, file_type, file_data, proxies=None):
+        obj = cls((file_type, file_data), proxies=proxies)
         try:
             yield obj
         finally:
@@ -88,8 +91,8 @@ class BaseProtocolFile(object):
 
     @classmethod
     @contextlib.contextmanager
-    def get_from_url(cls, url):
-        with cls._get_from('url', url) as p: yield p
+    def get_from_url(cls, url, proxies=None):
+        with cls._get_from('url', url, proxies=proxies) as p: yield p
 
     @classmethod
     @contextlib.contextmanager

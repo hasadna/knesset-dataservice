@@ -116,11 +116,12 @@ class BaseKnessetDataServiceObject(object):
         return KnessetDataServiceRequestException(cls._get_service_name(), cls._get_method_name(), original_exception)
 
     @classmethod
-    def _get_soup(cls, url, params=None):
+    def _get_soup(cls, url, params=None, proxies=None):
         params = {} if params == None else params
         timeout = params.pop('__timeout__', cls.DEFAULT_REQUEST_TIMEOUT_SECONDS)
         try:
-            response = requests.get(url, params=params, timeout=timeout)
+            proxies = proxies if proxies else {}
+            response = requests.get(url, params=params, timeout=timeout, proxies=proxies)
         except requests.RequestException, e:
             raise cls._get_request_exception(e)
         if response.status_code != 200:
@@ -184,9 +185,10 @@ class BaseKnessetDataServiceObject(object):
                             for k, v
                             in self.get_fields().iteritems()))
 
-    def __init__(self, entry):
+    def __init__(self, entry, proxies=None):
         self._session = requests.session()
         self._entry = entry
+        self._proxies = proxies if proxies else {}
         for attr_name, field in self.get_fields().iteritems():
             if not field.DEPENDS_ON_OBJ_FIELDS:
                 self._set_field_value(field, attr_name, entry)
@@ -236,7 +238,7 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
         }
 
     @classmethod
-    def _get_all_pages(cls, start_url, params=None):
+    def _get_all_pages(cls, start_url, params=None, proxies=None):
         """
         This method is not exposed externally because it might be dangerous
         it will iterate over all the pages, starting at start_url, following next url in each xml
@@ -247,26 +249,26 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
         # first request and using `get_soup` with the params argument creates duplicate params
         next_url = ds_utils.compose_url_get(start_url, params)
         while next_url:
-            soup = cls._get_soup(next_url)
+            soup = cls._get_soup(next_url, proxies=proxies)
             for entry in soup.feed.find_all('entry'):
                 yield cls(cls._parse_entry(entry))
             next_link = soup.find('link', rel="next")
             next_url = next_link and next_link.attrs.get('href', None)
 
     @classmethod
-    def get(cls, id):
-        soup = cls._get_soup(cls._get_url_single(id))
+    def get(cls, id, proxies=None):
+        soup = cls._get_soup(cls._get_url_single(id), proxies=proxies)
         return cls(cls._parse_entry(soup.entry))
 
     @classmethod
-    def get_page(cls, order_by=None, results_per_page=50, page_num=1):
+    def get_page(cls, order_by=None, results_per_page=50, page_num=1, proxies=None):
         if not order_by and cls.DEFAULT_ORDER_BY_FIELD:
             order_by = (cls.DEFAULT_ORDER_BY_FIELD, 'desc')
         if order_by:
             order_by_field, order_by_dir = order_by
             order_by_field = cls.get_field(order_by_field).get_order_by_field()
             order_by = order_by_field, order_by_dir
-        soup = cls._get_soup(cls._get_url_page(order_by, results_per_page, page_num))
+        soup = cls._get_soup(cls._get_url_page(order_by, results_per_page, page_num), proxies=proxies)
         if len(soup.feed.find_all('link', attrs={'rel': 'next'})) > 0:
             raise Exception(
                 'looks like you asked for too much results per page, 50 results per page usually works')
@@ -275,6 +277,7 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
 
 
 class BaseKnessetDataServiceFunctionObject(BaseKnessetDataServiceObject):
+
     @classmethod
     def _get_url(cls, params):
         return Request('GET', cls._get_url_base(), params=params).prepare().url
@@ -293,6 +296,8 @@ class BaseKnessetDataServiceFunctionObject(BaseKnessetDataServiceObject):
         }
 
     @classmethod
-    def get(cls, params):
-        soup = cls._get_soup(cls._get_url(params))
-        return (cls(cls._parse_element(element)) for element in soup.find_all('element'))
+    def get(cls, params, proxies=None):
+        soup = cls._get_soup(cls._get_url(params), proxies=proxies)
+        return (cls(cls._parse_element(element), proxies=proxies)
+                for element
+                in soup.find_all('element'))
