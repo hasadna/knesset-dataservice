@@ -14,5 +14,4 @@ install:
   - pip install -r python/requirements.txt
   - pip install python/
 script: 
-  - .travis/run_tests.sh
-  - .travis/make_datapackage.sh
+  - .travis/script.sh
