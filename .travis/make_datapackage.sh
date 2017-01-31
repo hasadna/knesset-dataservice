@@ -18,19 +18,10 @@ if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" ] && [ "${DATAPACKAGE_SSH_PROXY_HOST}"
 else
     echo "skipping datapackage creation because missing ssh proxy variables"
 fi
-exit 0
+
 if [ "${SLACK_API_TOKEN}" != "" ] && [ "${SLACK_LOG_WEBHOOK}" != "" ]; then
     echo "sending notification to slack"
-    curl -X POST -g "${SLACK_LOG_WEBHOOK}" --data-urlencode 'payload={"channel": "#oknesset-travis", "username": "travis", "text": "hello from travis"}'
-    exit 0
-    echo "uploading datapackage to slack"
-    if [ -f data/datapackage.zip ]; then
-        curl -F "file=@data/datapackage.zip" -F "filename=datapackage.zip" -F "token=${SLACK_API_TOKEN}" "https://slack.com/api/files.upload" | jq -r .file.url_private > "data/datapackage.zip.slack_url"
-        echo "slack_url=`cat data/datapackage.zip.slack_url`"
-    else
-        echo "missing data/datapackage.zip file"
-        exit 1
-    fi
+    curl -X POST -g "${SLACK_LOG_WEBHOOK}" --data-urlencode 'payload={"channel": "#oknesset-travis", "username": "travis", "text": ":sunglasses: Travis build: https://travis-ci.org/${TRAVIS_REPO_SLUG}/builds/${TRAVIS_BUILD_ID}"}'
 else
     echo "skipping slack integration because missing relevant slack tokens"
 fi
