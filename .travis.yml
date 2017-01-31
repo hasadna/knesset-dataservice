@@ -10,6 +10,6 @@ install:
   - pip install --upgrade pip
   - pip install -r python/requirements.txt
   - pip install python/
-script:
+script: 
   - .travis/run_tests.sh
   - .travis/make_datapackage.sh
