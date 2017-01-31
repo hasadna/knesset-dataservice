@@ -20,10 +20,10 @@ class TestLaws(TestCase):
         self.assertEqual(law.knesset_id, 15)
         # due to bug #69 we don't know for sure if this url will be correct or not, it's an educated guess
         self.assertEqual(law.guess_link_url(), 'http://knesset.gov.il/privatelaw/data/15/1044.rtf')
-        self.assertEqual(PrivateLawMk.get_by_plaw_id(318)[0].mk_id, 119)
+        self.assertEqual(PrivateLawMk.get_by_plaw_id(318).next().mk_id, 119)
 
     def test_law_mks(self):
-        law_mks = PrivateLawMk.get_by_plaw_id(321)
+        law_mks = list(PrivateLawMk.get_by_plaw_id(321))
         self.assertEqual(len(law_mks), 4)
         law_mks = {
             law_mk.mk_id: {

@@ -273,7 +273,7 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
             raise Exception(
                 'looks like you asked for too much results per page, 50 results per page usually works')
         else:
-            return [cls(cls._parse_entry(entry)) for entry in soup.feed.find_all('entry')]
+            return (cls(cls._parse_entry(entry)) for entry in soup.feed.find_all('entry'))
 
 
 class BaseKnessetDataServiceFunctionObject(BaseKnessetDataServiceObject):
