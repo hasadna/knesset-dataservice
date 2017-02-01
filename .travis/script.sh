@@ -4,11 +4,6 @@ set -e
 
 [ -f .travis/.env ] && source .travis/.env
 
-### constants ###
-
-OK=0
-FAILED=1
-SKIPPED=2
 
 ### functions ###
 
@@ -115,34 +110,22 @@ exit_success() {
     fi
 }
 
+
 ### main ###
 
 if run_tests; then
-    make_datapackage
-    case $? in
-        $OK)
-            DATAPACKAGE_FILENAME="datapackage_last_${DATAPACKAGE_LAST_DAYS}_days_`date "+%Y-%m-%d_%H-%M"`.zip"
-            upload_datapackage "data/datapackage.zip" "${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
-            case $? in
-                $OK)
-                    DATAPACKAGE_URL="https://s3.amazonaws.com/${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
-                    ;;
-                $FAILED)
-                    exit_error
-                    ;;
-                $SKIPPED)
-                    true
-                    ;;
-            esac
-            ;;
-        $FAILED)
+    if make_datapackage; then
+        DATAPACKAGE_FILENAME="datapackage_last_${DATAPACKAGE_LAST_DAYS}_days_`date "+%Y-%m-%d_%H-%M"`.zip"
+        if upload_datapackage "data/datapackage.zip" "${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"; then
+            DATAPACKAGE_URL="https://s3.amazonaws.com/${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
+        elif [ $? == 1 ]; then
             exit_error
-            ;;
-        $SKIPPED)
-            true
-            ;;
-    esac
-    exit_success
+        fi
+    elif [ $? == 1 ]; then
+        exit_error
+    fi
 else
     exit_error
 fi
+
+exit_success
