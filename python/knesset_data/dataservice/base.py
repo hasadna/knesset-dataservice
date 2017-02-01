@@ -11,6 +11,7 @@ from knesset_data.utils.github import github_add_or_update_issue
 from knesset_data.dataservice.exceptions import KnessetDataServiceRequestException
 from copy import deepcopy
 from collections import OrderedDict
+from knesset_data.datapackages.base import CsvResource
 
 
 logger=logging.getLogger(__name__)
@@ -274,6 +275,10 @@ class BaseKnessetDataServiceCollectionObject(BaseKnessetDataServiceObject):
                 'looks like you asked for too much results per page, 50 results per page usually works')
         else:
             return (cls(cls._parse_entry(entry)) for entry in soup.feed.find_all('entry'))
+
+    @classmethod
+    def get_all(cls, proxies=None):
+        return cls._get_all_pages(cls._get_url_base(), proxies=proxies)
 
 
 class BaseKnessetDataServiceFunctionObject(BaseKnessetDataServiceObject):

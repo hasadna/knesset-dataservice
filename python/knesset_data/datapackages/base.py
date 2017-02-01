@@ -14,17 +14,28 @@ class BaseResource(Resource):
         descriptor["name"] = name
         super(BaseResource, self).__init__(descriptor, os.path.join(parent_datapackage_path, name))
 
-    def make(self, parent_name=None, include=None, exclude=None, **kwargs):
-        full_name = "-".join([parent_name, self.descriptor["name"]])
-        if include and not [True for str in include if len(str) > 0 and full_name.startswith(str)]:
-            self.logger.debug("skipping resource '{}' due to include filter".format(full_name))
-            return False
-        elif exclude and [True for str in exclude if len(str) > 0 and full_name.startswith(str)]:
-            self.logger.debug("skipping resource '{}' due to exclude filter".format(full_name))
-            return False
+    def make(self, **kwargs):
+        raise NotImplementedError()
+
+    def _skip_resource(self, include=None, exclude=None, **kwargs):
+        if not hasattr(self, '_logged_skip_message'):
+            self._logged_skip_message = True
+            log = True
         else:
-            self.logger.info("making resource '{}'".format(full_name))
+            log = False
+        full_name = self.descriptor["name"]
+        if include and not [True for str in include if len(str) > 0 and full_name.startswith(str)]:
+            if log:
+                self.logger.debug("skipping resource '{}' due to include filter".format(full_name))
             return True
+        elif exclude and [True for str in exclude if len(str) > 0 and full_name.startswith(str)]:
+            if log:
+                self.logger.debug("skipping resource '{}' due to exclude filter".format(full_name))
+            return True
+        else:
+            if log:
+                self.logger.info("making resource '{}'".format(full_name))
+            return False
 
     @property
     def logger(self):
@@ -44,7 +55,7 @@ class CsvResource(BaseTabularResource):
     def __init__(self, name, parent_datapackage_path, json_table_schema):
         super(CsvResource, self).__init__(name, parent_datapackage_path)
         self.descriptor.update({
-            "path": "{}.csv".format(self._base_path),
+            "path": "{}.csv".format(name),
             "schema": json_table_schema
         })
 
@@ -73,53 +84,78 @@ class CsvResource(BaseTabularResource):
             return ""
 
     def _data_generator(self, **make_kwargs):
-        raise NotImplementedError('must be implemented in extending classes')
+        # if you want to use stream generation - you should return a generator here
+        # alternatively - leave this function as is and use _append to add rows to the csv file
+        return []
 
-    def make(self, **kwargs):
-        if super(CsvResource, self).make(**kwargs):
-            csv_path="{}.csv".format(self._base_path)
-            self.logger.info('writing csv resource to {}'.format(csv_path))
+    def _append(self, row, **make_kwargs):
+        if not self._skip_resource(**make_kwargs):
+            # append a row to the csv file (creates the file and header if does not exist)
+            csv_path = "{}.csv".format(self._base_path)
             fields = self.descriptor["schema"]["fields"]
-            with open(csv_path, 'wb') as csv_file:
+            if not hasattr(self, "_csv_file_initialized"):
+                self._csv_file_initialized = True
+                self.logger.info('writing csv resource to: {}'.format(csv_path))
+                with open(csv_path, 'wb') as csv_file:
+                    csv_writer = csv.writer(csv_file)
+                    csv_writer.writerow([field["name"] for field in fields])
+            with open(csv_path, 'ab') as csv_file:
                 csv_writer = csv.writer(csv_file)
-                csv_writer.writerow([field["name"] for field in fields])
-                row_num = 0
-                for row in self._data_generator(**kwargs):
-                    row_num += 1
-                    csv_row = []
-                    for field in fields:
-                        value = self._get_field_csv_value(row[field["name"]], field)
-                        csv_row.append(value)
-                    csv_writer.writerow(csv_row)
-            return True
-
-
-class DatapackageResource(BaseResource):
-    """
-    A custom resource which contains a datapackage
-    """
-
-    def __init__(self, name, parent_datapackage_path, datapackage_class):
-        super(DatapackageResource, self).__init__(name, parent_datapackage_path)
-        self.descriptor["path"] = os.path.join(self._base_path, "datapackage.json")
-        self._datapackage_class = datapackage_class
+                csv_row = []
+                for field in fields:
+                    value = self._get_field_csv_value(row[field["name"]], field)
+                    csv_row.append(value)
+                csv_writer.writerow(csv_row)
 
     def make(self, **kwargs):
-        # remove include / exclude rules - only for datapackage resources, because otherwise it prevents going deeper in the package tree
-        exclude = kwargs.pop("exclude", None)
-        include = kwargs.pop("include", None)
-        if super(DatapackageResource, self).make(**kwargs):
-            kwargs["include"] = include
-            kwargs["exclude"] = exclude
-            if not os.path.exists(self._base_path):
-                os.mkdir(self._base_path)
-            name = self.descriptor["name"]
-            if kwargs.get("parent_name", None):
-                name = "{}-{}".format(kwargs.get("parent_name", None), name)
-            datapackage = self._datapackage_class(descriptor={"name": name},
-                                                  default_base_path=self._base_path)
-            datapackage.make(**kwargs)
+        if not self._skip_resource(**kwargs):
+            for row in self._data_generator(**kwargs):
+                self._append(row)
             return True
+
+
+class FilesResource(BaseResource):
+
+    def __init__(self, name, parent_datapackage_path):
+        super(FilesResource, self).__init__(name, parent_datapackage_path, {"path": []})
+
+    def _data_generator(self, **make_kwargs):
+        # if you want to use stream generation - you should return a generator here
+        # generator should return relative file paths (relative to base_path) of files it created
+        # alternatively - leave this function as is and use _append to add files
+        return []
+
+    def _append(self, file_path, **make_kwargs):
+        if not self._skip_resource(**make_kwargs):
+            # append a file (which was already created and saved)
+            self.descriptor["path"].append(file_path.replace(self._base_path, ""))
+
+    def make(self, **kwargs):
+        if not self._skip_resource(**kwargs):
+            for file_path in self._data_generator(**kwargs):
+                self._append(file_path)
+            return True
+
+
+class CsvFilesResource(CsvResource, FilesResource):
+
+    def __init__(self, name, parent_datapackage_path, json_table_schema):
+        CsvResource.__init__(self, name, parent_datapackage_path, json_table_schema)
+        self.descriptor["path"] = [self.descriptor["path"]]
+
+    def _append(self, **kwargs):
+        raise Exception("please use _append_file or _append_csv instead")
+
+    def _append_file(self, file_path, **make_kwargs):
+        FilesResource._append(self, file_path, **make_kwargs)
+
+    def _append_csv(self, row, **make_kwargs):
+        CsvResource._append(self, row, **make_kwargs)
+
+    def make(self, **kwargs):
+        if not self._skip_resource(**kwargs):
+            return (FilesResource.make(self, **kwargs)
+                    and CsvResource.make(self, **kwargs))
 
 
 class BaseDatapackage(DataPackage):
@@ -146,7 +182,6 @@ class BaseDatapackage(DataPackage):
         self.logger.info('making resources')
         for resource in self.resources:
             if isinstance(resource, BaseResource):
-                kwargs["parent_name"] = self.descriptor["name"]
                 try:
                     if resource.make(**kwargs):
                         resource.descriptor.update({"error": False, "skipped": False})
