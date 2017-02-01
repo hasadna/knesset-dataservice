@@ -122,7 +122,7 @@ if run_tests; then
     case $? in
         $OK)
             DATAPACKAGE_FILENAME="datapackage_last_${DATAPACKAGE_LAST_DAYS}_days_`date "+%Y-%m-%d_%H-%M"`.zip"
-            upload_datapackage "data/datapackage.zip" "${DATAPACKAGE_FILENAME}"
+            upload_datapackage "data/datapackage.zip" "${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
             case $? in
                 $OK)
                     DATAPACKAGE_URL="https://s3.amazonaws.com/${KNESSET_DATA_BUCKET}/${DATAPACKAGE_FILENAME}"
