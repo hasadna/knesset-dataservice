@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 [ -f .travis/.env ] && source .travis/.env
 
 ### constants ###
@@ -59,11 +61,7 @@ upload_datapackage() {
 make_datapackage() {
     if [[ "${BUILD_DATAPACKAGE_BRANCHES}" == *"${TRAVIS_BRANCH}"* ]]; then
         mkdir -p data
-        if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" ] && [ "${DATAPACKAGE_SSH_PROXY_HOST}" != "" ]; then
-            echo "creating ssh socks tunnel"
-            echo -e "${DATAPACKAGE_SSH_PROXY_KEY}" > sshproxy.key
-            chmod 400 sshproxy.key
-            ssh -o StrictHostKeyChecking=no -D 8123 -C -f -N -i sshproxy.key "${DATAPACKAGE_SSH_PROXY_HOST}"
+        if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" ]; then
             pushd python > /dev/null
                 echo "making datapackage for last ${DATAPACKAGE_LAST_DAYS} days"
                 bin/make_datapackage.py --days "${DATAPACKAGE_LAST_DAYS}" --debug --zip --http-proxy "socks5://localhost:8123"
@@ -71,15 +69,13 @@ make_datapackage() {
             popd > /dev/null
             if [ $make_datapackage_result == 0 ]; then
                 echo "OK"
-                echo "killing the ssh tunnel"
-                pkill -fe -9 sshproxy
                 return 0
             else
                 echo "failed to create datapackage"
                 return 1
             fi
         else
-            echo "skipping datapackage creation because missing ssh proxy variables"
+            echo "skipping datapackage creation because missing ssh proxy"
             return 2
         fi
     else

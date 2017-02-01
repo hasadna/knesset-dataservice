@@ -7,8 +7,6 @@ addons:
     - antiword
     - language-pack-he
 install:
-  - pip install --upgrade pip
-  - pip install -r python/requirements.txt
-  - pip install python/
+  - .travis/install.sh
 script: 
   - .travis/script.sh
