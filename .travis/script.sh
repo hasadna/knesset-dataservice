@@ -58,7 +58,7 @@ make_datapackage() {
         if [ "${DATAPACKAGE_SSH_PROXY_KEY}" != "" ]; then
             pushd python > /dev/null
                 echo "making datapackage for last ${DATAPACKAGE_LAST_DAYS} days"
-                bin/make_datapackage.py --days "${DATAPACKAGE_LAST_DAYS}" --debug --zip --http-proxy "socks5://localhost:8123" --force
+                bin/make_datapackage.py --days "${DATAPACKAGE_LAST_DAYS}" --debug --zip --http-proxy "socks5://localhost:8123"
                 local make_datapackage_result=$?
             popd > /dev/null
             if [ $make_datapackage_result == 0 ]; then

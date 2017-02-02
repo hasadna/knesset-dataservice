@@ -22,6 +22,7 @@ parser.add_argument('--http-proxy', type=str, help='url to SOCKS http proxy')
 parser.add_argument('--zip', action="store_true", help="create the datapackage in a zip file")
 parser.add_argument('--all-committees', action="store_true", help="committees resource: fetch all committees, including historical")
 parser.add_argument('--main-committees', action="store_true", help="committees resource: fetch only the active main committees")
+parser.add_argument('--member-id', nargs="*", type=int, help="members resource: fetch only the given member id/s")
 
 args = parser.parse_args()
 
@@ -66,7 +67,8 @@ RootDatapackage(datapackage_root).make(days=args.days,
                                        include=args.include,
                                        committee_ids=args.committee_id,
                                        debug=args.debug,
-                                       proxies=proxies)
+                                       proxies=proxies,
+                                       member_ids=args.member_id)
 
 if args.zip:
     logger.info('creating datapackage.zip')

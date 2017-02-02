@@ -27,10 +27,14 @@ class BaseResource(Resource):
         if include and not [True for str in include if len(str) > 0 and full_name.startswith(str)]:
             if log:
                 self.logger.debug("skipping resource '{}' due to include filter".format(full_name))
+            self._descriptor.update({k: None for k in self._descriptor if k != "name"})
+            self._descriptor["description"] = "resource skipped due to include filter"
             return True
         elif exclude and [True for str in exclude if len(str) > 0 and full_name.startswith(str)]:
             if log:
                 self.logger.debug("skipping resource '{}' due to exclude filter".format(full_name))
+            self._descriptor.update({k: None for k in self._descriptor if k != "name"})
+            self._descriptor["description"] = "resource skipped due to exclude filter"
             return True
         else:
             if log:
@@ -128,7 +132,7 @@ class FilesResource(BaseResource):
     def _append(self, file_path, **make_kwargs):
         if not self._skip_resource(**make_kwargs):
             # append a file (which was already created and saved)
-            self.descriptor["path"].append(file_path.replace(self._base_path, ""))
+            self.descriptor["path"].append(file_path.replace(self._base_path+"/", ""))
 
     def make(self, **kwargs):
         if not self._skip_resource(**kwargs):
@@ -182,18 +186,7 @@ class BaseDatapackage(DataPackage):
         self.logger.info('making resources')
         for resource in self.resources:
             if isinstance(resource, BaseResource):
-                try:
-                    if resource.make(**kwargs):
-                        resource.descriptor.update({"error": False, "skipped": False})
-                    else:
-                        resource.descriptor.update({"error": False, "skipped": True})
-                except Exception, e:
-                    if kwargs.get('force', False):
-                        self.logger.error('exception trying to make resource')
-                        self.logger.exception(e)
-                        resource.descriptor.update({"error": True, "skipped": True})
-                    else:
-                        raise e
+                resource.make(**kwargs)
         self.logger.info('writing datapackage.json')
         with open(os.path.join(self.base_path, "datapackage.json"), 'w') as f:
             f.write(json.dumps(self.descriptor, indent=True)+"\n")

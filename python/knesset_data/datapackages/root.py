@@ -1,6 +1,7 @@
 from knesset_data.datapackages.base import BaseDatapackage
 from knesset_data.dataservice.committees import CommitteesResource, CommitteeMeetingsResource, CommitteeMeetingProtocolsResource
 from knesset_data.dataservice.members import MembersResource
+from knesset_data.dataservice.laws import PrivateLawResource
 
 
 class RootDatapackage(BaseDatapackage):
@@ -30,5 +31,8 @@ class RootDatapackage(BaseDatapackage):
         descriptor["resources"] += [committees_resource,
                                     committee_meetings_resource,
                                     committee_meetings_protocols_resource]
+
+        ### dataservice laws ###
+        descriptor["resources"] += [PrivateLawResource("private-laws", base_path)]
 
         return super(RootDatapackage, self)._load_resources(descriptor, base_path)

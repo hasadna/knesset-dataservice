@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from base import BaseKnessetDataServiceCollectionObject, KnessetDataServiceSimpleField
-from knesset_data.datapackages.base import CsvResource
+from base import BaseKnessetDataServiceCollectionObject, KnessetDataServiceSimpleField, BaseKnessetDataServiceCollectionResource
 
 logger = logging.getLogger('knesset_data.dataservice.members')
 
@@ -54,33 +53,7 @@ class Member(BaseKnessetDataServiceCollectionObject):
         return cls._get_all_pages(cls._get_url_base(), params, proxies=proxies)
 
 
-class MembersResource(CsvResource):
-
-    def __init__(self, name, parent_datapackage_path):
-        json_table_schema = Member.get_json_table_schema()
-        super(MembersResource, self).__init__(name, parent_datapackage_path, json_table_schema)
-        self._generated_members = []
-
-    def _data_generator(self, **make_kwargs):
-        proxies = make_kwargs.get('proxies')
-        if make_kwargs.get('member_ids'):
-            self.logger.info('fetching member ids: {}'.format(make_kwargs["member_ids"]))
-            self.descriptor["description"] = "specific member ids"
-            members = (Member.get(member_id, proxies=proxies)
-                          for member_id in make_kwargs["member_ids"])
-        elif make_kwargs.get('all_members'):
-            self.logger.info('fetching all members')
-            self.descriptor["description"] = "all members"
-            members = Member.get_all(proxies=proxies)
-        else:
-            self.logger.info('fetching present members')
-            self.descriptor["description"] = "present members"
-            members = Member.get_all_present_members(proxies=proxies)
-        for member in members:
-            self.logger.debug('appending member {}'.format(member.id))
-            self._generated_members.append(member)
-            yield member.all_field_values()
-
-    def get_generated_members(self):
-        # this can be used by other resources which depend on list of members
-        return self._generated_members
+class MembersResource(BaseKnessetDataServiceCollectionResource):
+    collection = Member
+    object_name = "member"
+    track_generated_objects = True
