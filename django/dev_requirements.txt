@@ -1,0 +1,5 @@
+-r requirements.txt
+
+-e .
+-e ../python
+-e ../../Open-Knesset

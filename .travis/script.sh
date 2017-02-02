@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
-set -e
+set -e  # exit on errors
 
 [ -f .travis/.env ] && source .travis/.env
-
 
 ### functions ###
 
@@ -80,18 +79,31 @@ make_datapackage() {
 }
 
 run_tests() {
-    echo "running tests"
+    echo "Running python tests"
     pushd python > /dev/null
-        bin/run_tests.sh
-        local run_tests_result=$?
+        if ! bin/run_tests.sh; then
+            echo "Python tests failed"
+            return 1
+        fi
     popd > /dev/null
-    if [ $run_tests_result == 0 ]; then
-        echo "OK"
-        return 0
-    else
-        echo "tests failed"
-        return 1
-    fi
+    echo "Running django tests"
+    pushd django > /dev/null
+        if ! ./manage.py test; then
+            echo "Django tests failed"
+            return 1
+        fi
+        echo "Test django migrations"
+        if ! ./manage.py syncdb --noinput; then
+            echo "Syncdb failed"
+            return 1
+        fi
+        if ! ./manage.py migrate; then
+            echo "migrate failed"
+            return 1
+        fi
+    popd > /dev/null
+    echo "OK"
+    return 0
 }
 
 exit_error() {

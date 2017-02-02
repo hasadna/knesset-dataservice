@@ -1,0 +1,52 @@
+Django==1.6.11
+Pillow==2.4.0
+South==1.0
+django-extensions==1.2.5
+django-pagination==1.0.7
+django-tagging==0.3.1
+django-tastypie-swagger==0.1.2
+BeautifulSoup
+vobject
+feedparser
+gdata
+gunicorn==19.6.0
+python-social-auth==0.2.1
+oauth==1.0.1
+python-dateutil==1.5
+python-memcached==1.48
+-e git://github.com/openid/python-openid.git#egg=python-openid
+django-tastypie==0.9.15
+django-ratings
+-e git://github.com/hasadna/django-activity-stream.git@c56a07921b8c796fce35bda6feab4610fdf64e5d#egg=django-activity-stream
+-e git://github.com/hasadna/django-planet.git@903de33db55bfb8d965ae4e2319fa348075351fd#egg=django-planet
+-e git://github.com/hasadna/django-annotatetext.git@72e1e69459b1efe3efad85eec1dd162f5ab03250#egg=django-annotatetext
+django-mailer==1.1.0
+django-avatar==2.0
+-e git://github.com/hasadna/django-backlinks.git@df00163eee41cc2c090e6a703c03610cc7979f66#egg=django-backlinks
+-e git://github.com/spreeker/django-voting2.git#egg=django-voting2
+django-debug-toolbar<1.4
+nose
+django-nose==1.4.3
+django-devserver==0.8.0
+ipython
+django-tinymce==1.5.2
+django-crispy-forms==1.2.3
+django-storages==1.1.8
+boto==2.20.1
+BeautifulSoup4
+okscraper-django==0.0.12
+ujson==1.35
+selenium
+sauceclient
+django-sslify>=0.2.0
+django-cors-headers==1.1.0
+pyjwt
+django-sslserver
+python-hebrew-numbers==0.1.0
+git+https://github.com/turnkeylinux/octohub.git
+django-waffle==0.11
+django-import-export==0.4.2
+https://github.com/OriHoch/django-slack/archive/django1.6-5.2.2.zip
+unicodecsv==0.14.1
+django-fastsitemaps==0.2
+subprocess32==3.2.7

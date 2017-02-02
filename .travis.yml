@@ -8,7 +8,7 @@ addons:
     - language-pack-he
 install:
   - .travis/install.sh
-script: 
+script:
   - .travis/script.sh
 after_script:
-  - pkill -fe -9 sshproxy || true
+  - pkill -e -9 sshproxy || true
