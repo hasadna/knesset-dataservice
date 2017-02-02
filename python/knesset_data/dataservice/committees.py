@@ -65,12 +65,12 @@ class CommitteesResource(BaseKnessetDataServiceCollectionResource):
         self._meetings_resource = meetings_resource
         super(CommitteesResource, self).__init__(name, parent_datapackage_path)
 
-    def _get_objects_by_main(self, void, proxies):
+    def _get_objects_by_main(self, void, proxies=None, **kwargs):
         self.logger.info('fetching main committees')
         self.descriptor["description"] = "main committees"
         return Committee.get_all_active_committees(has_portal_link=True, proxies=proxies)
 
-    def _get_objects_by_active(self, void, proxies):
+    def _get_objects_by_active(self, void, proxies=None, **kwargs):
         self.logger.info('fetching active committees')
         self.descriptor["description"] = "active committees"
         return Committee.get_all_active_committees(has_portal_link=False, proxies=proxies)
