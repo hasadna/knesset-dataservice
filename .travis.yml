@@ -11,4 +11,4 @@ install:
 script:
   - .travis/script.sh
 after_script:
-  - pkill -e -9 sshproxy || true
+  - pkill -9 -f "sshproxy" || true
