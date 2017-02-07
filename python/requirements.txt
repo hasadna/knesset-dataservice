@@ -7,3 +7,6 @@
 # see .travis.yml to see how knesset-data should be installed
 
 git+https://github.com/turnkeylinux/octohub.git
+datapackage==0.8.5
+requests==2.13.0
+PySocks==1.6.6

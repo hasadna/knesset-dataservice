@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from base import BaseKnessetDataServiceCollectionObject, KnessetDataServiceSimpleField
+from base import BaseKnessetDataServiceCollectionObject, KnessetDataServiceSimpleField, BaseKnessetDataServiceCollectionResource
 
 logger = logging.getLogger('knesset_data.dataservice.laws')
 
@@ -22,6 +22,12 @@ class PrivateLaw(BaseKnessetDataServiceCollectionObject):
 
     def guess_link_url(self):
         return 'http://knesset.gov.il/privatelaw/data/%s/%s'%(self.knesset_id, self.link)
+
+
+class PrivateLawResource(BaseKnessetDataServiceCollectionResource):
+    collection = PrivateLaw
+    object_name = "private law"
+    get_latest_by_page_estimate = ('id', 5)  # order by id desc, with estimate of 5 laws per day up to given days param value
 
 
 class PrivateLawMk(BaseKnessetDataServiceCollectionObject):
