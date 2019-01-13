@@ -20,7 +20,7 @@ Check out the list of issues in the different repositores, they should be labele
 
 ## Data Contributions
 
-An important part of Knesset-Aata project is to document and test the actual Knesset Data.
+An important part of Knesset-Data project is to document and test the actual Knesset Data.
 
 We have documentation of the available Knesset APIs and Data.
 
